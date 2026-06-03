@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BN Kids Story Tester</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; min-height: 100vh; padding: 2rem; }
+h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+.sub { font-size: 13px; color: #94a3b8; margin-bottom: 2rem; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+.card-title { font-size: 13px; font-weight: 500; color: #94a3b8; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+label { font-size: 12px; color: #94a3b8; }
+input, select { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; color: #f1f5f9; font-size: 14px; outline: none; }
+input:focus, select:focus { border-color: #6366f1; }
+.btn { width: 100%; padding: 12px; font-size: 15px; font-weight: 500; cursor: pointer; background: #6366f1; border: none; border-radius: 8px; color: white; margin-top: 1rem; }
+.btn:hover { background: #5558e3; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.progress-wrap { display: none; }
+.progress-label { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+.progress-bg { height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; border: 1px solid #334155; }
+.progress-fill { height: 100%; background: #22c55e; border-radius: 3px; transition: width 0.4s; }
+.logbox { font-size: 12px; color: #64748b; font-family: monospace; padding: 10px; background: #0f172a; border-radius: 8px; min-height: 60px; max-height: 160px; overflow-y: auto; margin-top: 10px; white-space: pre-wrap; border: 1px solid #1e293b; }
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1rem; }
+.stat { background: #0f172a; border-radius: 8px; padding: 12px 14px; border: 1px solid #334155; }
+.stat-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+.stat-val { font-size: 22px; font-weight: 500; }
+.book-card { border: 1px solid #334155; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; background: #1e293b; }
+.book-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.book-score { font-size: 26px; font-weight: 500; }
+.book-title { font-size: 15px; font-weight: 500; }
+.book-sub { font-size: 12px; color: #64748b; }
+.badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 6px; font-weight: 500; }
+.badge-ok { background: #14532d; color: #86efac; }
+.badge-warn { background: #78350f; color: #fcd34d; }
+.badge-fail { background: #7f1d1d; color: #fca5a5; }
+.chap-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-top: 1px solid #1e293b; font-size: 13px; }
+.chap-num { font-weight: 500; min-width: 65px; color: #64748b; }
+.chap-icon { min-width: 20px; font-size: 15px; }
+.issues { margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+.issues-title { font-size: 12px; font-weight: 500; color: #94a3b8; margin-bottom: 8px; }
+.issue { font-size: 12px; margin-bottom: 10px; padding-left: 10px; border-left: 2px solid #ef4444; }
+.issue.warn { border-left-color: #f59e0b; }
+.fix { color: #22c55e; margin-top: 3px; }
+.summary-text { font-size: 13px; color: #94a3b8; margin-bottom: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>BN Kids Story Tester</h1>
+<p class="sub">Genererar bocker och analyserar minnesprestanda automatiskt</p>
+
+<div class="card">
+  <div class="card-title">Installningar</div>
+  <div class="grid3" style="margin-bottom:12px">
+    <div class="field">
+      <label>Worker URL</label>
+      <input type="text" id="workerUrl" value="https://bn-kids-stories-worker.bjorta-bb.workers.dev" />
+    </div>
+    <div class="field">
+      <label>Token</label>
+      <input type="text" id="token" value="bjorn-admin" />
+    </div>
+    <div class="field">
+      <label>Barnnamn</label>
+      <input type="text" id="childName" value="Bjorn" />
+    </div>
+  </div>
+  <div class="grid2" style="margin-bottom:12px">
+    <div class="field">
+      <label>Saga-prompt</label>
+      <input type="text" id="storyPrompt" value="Pelle traffar Lisa och de foralskar sig" />
+    </div>
+    <div class="field">
+      <label>Barnets alder</label>
+      <input type="number" id="childAge" value="9" min="3" max="13" />
+    </div>
+  </div>
+  <div class="field" style="margin-bottom:12px">
+    <label>Antal bocker</label>
+    <select id="numBooks" style="max-width:200px">
+      <option value="1">1 bok</option>
+      <option value="3" selected>3 bocker</option>
+    </select>
+  </div>
+  <button class="btn" id="runBtn" onclick="startTest()">Kor test</button>
+</div>
+
+<div class="card progress-wrap" id="progressWrap">
+  <div class="progress-label" id="progressLabel">Forbereder...</div>
+  <div class="progress-bg"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="logbox" id="logBox"></div>
+</div>
+
+<div id="reports"></div>
+
+<script>
+var running = false;
+
+function log(msg) {
+  var box = document.getElementById('logBox');
+  box.textContent += msg + '\n';
+  box.scrollTop = box.scrollHeight;
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = Math.round(pct) + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+function workerFetch(url, token, path, body) {
+  var sep = url.indexOf('?') >= 0 ? '&' : '?';
+  return fetch(url + path + sep + 'token=' + encodeURIComponent(token), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r) { return r.json(); });
+}
+
+function generateChapter(url, token, body) {
+  return workerFetch(url, token, '/api/story', body);
+}
+
+function analyzeViaWorker(url, token, bookTitle, chapters, prompt) {
+  return workerFetch(url, token, '/api/analyze', {
+    book_title: bookTitle,
+    prompt: prompt,
+    chapters: chapters
+  });
+}
+
+function renderBook(bookNum, bookTitle, analysis, chapCount) {
+  if (!analysis) {
+    return '<div class="book-card"><div class="book-header"><span class="book-score" style="color:#ef4444">?</span><div><div class="book-title">Bok ' + bookNum + '</div><div class="book-sub">Analys misslyckades</div></div></div></div>';
+  }
+  var score = Math.round(analysis.overall_score || 0);
+  var scoreColor = score >= 8 ? '#22c55e' : score >= 6 ? '#f59e0b' : '#ef4444';
+  var badgeClass = score >= 8 ? 'badge-ok' : score >= 6 ? 'badge-warn' : 'badge-fail';
+  var badgeText = score >= 8 ? 'Bra minne' : score >= 6 ? 'Godkant' : 'Problem';
+
+  var verdicts = (analysis.chapter_verdicts || []).map(function(v) {
+    var icon = v.status === 'ok' ? '&check;' : v.status === 'warn' ? '&#9888;' : '&#10008;';
+    var color = v.status === 'ok' ? '#22c55e' : v.status === 'warn' ? '#f59e0b' : '#ef4444';
+    return '<div class="chap-row"><span class="chap-num">Kap ' + v.chapter + '</span><span class="chap-icon" style="color:' + color + '">' + icon + '</span><span>' + (v.note || '') + '</span></div>';
+  }).join('');
+
+  var problems = analysis.problems || [];
+  var issuesHtml = '';
+  if (problems.length) {
+    issuesHtml = '<div class="issues"><div class="issues-title">Problem och forbattringsforslag</div>';
+    problems.forEach(function(p) {
+      var cls = p.severity === 'critical' ? 'issue' : 'issue warn';
+      issuesHtml += '<div class="' + cls + '"><strong>Kap ' + p.chapter + ':</strong> ' + p.description + '<div class="fix">Fix: ' + p.fix + '</div></div>';
+    });
+    issuesHtml += '</div>';
+  }
+
+  return '<div class="book-card">' +
+    '<div class="book-header">' +
+    '<span class="book-score" style="color:' + scoreColor + '">' + score + '/10</span>' +
+    '<div style="flex:1"><div class="book-title">' + (bookTitle || 'Bok ' + bookNum) + '</div><div class="book-sub">' + chapCount + ' kapitel</div></div>' +
+    '<span class="badge ' + badgeClass + '">' + badgeText + '</span>' +
+    '</div>' +
+    (analysis.summary ? '<div class="summary-text">' + analysis.summary + '</div>' : '') +
+    verdicts + issuesHtml + '</div>';
+}
+
+function startTest() {
+  if (running) return;
+  var workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+  var token = document.getElementById('token').value.trim();
+  var childName = document.getElementById('childName').value.trim() || 'Bjorn';
+  var childAge = parseInt(document.getElementById('childAge').value) || 9;
+  var storyPrompt = document.getElementById('storyPrompt').value.trim() || 'Ett magiskt aventyr';
+  var numBooks = parseInt(document.getElementById('numBooks').value);
+
+  if (!workerUrl || !token) { alert('Fyll i Worker URL och Token'); return; }
+
+  running = true;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('reports').innerHTML = '';
+  document.getElementById('logBox').textContent = '';
+
+  var totalSteps = numBooks * 13;
+  var step = 0;
+  var results = [];
+
+  function runBook(b) {
+    if (b >= numBooks) { finish(); return; }
+    log('--- BOK ' + (b+1) + ' av ' + numBooks + ' ---');
+    setProgress((step/totalSteps)*100, 'Bok ' + (b+1) + ': startar...');
+
+    var chapters = [];
+    var bookId = null;
+    var bookTitle = 'Bok ' + (b+1);
+
+    function runChapter(ch) {
+      if (ch >= 12) {
+        log('  Analyserar ' + chapters.length + ' kapitel via worker...');
+        analyzeViaWorker(workerUrl, token, bookTitle, chapters, storyPrompt)
+          .then(function(res) {
+            if (res.ok && res.analysis) {
+              log('  Analys klar! Betyg: ' + res.analysis.overall_score + '/10');
+              results.push({ bookNum: b+1, bookTitle: bookTitle, chapters: chapters, analysis: res.analysis });
+            } else {
+              log('  Analysfeil: ' + (res.error || 'okant fel'));
+              results.push({ bookNum: b+1, bookTitle: bookTitle, chapters: chapters, analysis: null });
+            }
+            step++;
+            setProgress((step/totalSteps)*100, 'Bok ' + (b+1) + ' klar');
+            runBook(b+1);
+          })
+          .catch(function(e) {
+            log('  Analysfeil: ' + e.message);
+            results.push({ bookNum: b+1, bookTitle: bookTitle, chapters: chapters, analysis: null });
+            runBook(b+1);
+          });
+        return;
+      }
+
+      var isFirst = ch === 0;
+      var body = isFirst
+        ? { mode: 'new', child_name: childName, child_age: childAge, child_prompt: storyPrompt }
+        : { mode: 'continue', book_id: bookId, child_name: childName, child_age: childAge };
+
+      log('  Kap ' + (ch+1) + '...');
+      generateChapter(workerUrl, token, body)
+        .then(function(res) {
+          if (!res.ok) { log('  FEL: ' + (res.error || JSON.stringify(res))); runChapter(12); return; }
+          if (ch === 0) { bookId = res.book_id; bookTitle = res.book_title || bookTitle; }
+          chapters.push({ text: res.chapter_text, index: ch+1 });
+          step++;
+          setProgress((step/totalSteps)*100, 'Bok ' + (b+1) + ': kap ' + (ch+1) + '/12');
+          runChapter(ch+1);
+        })
+        .catch(function(e) {
+          log('  FEL: ' + e.message);
+          runChapter(12);
+        });
+    }
+    runChapter(0);
+  }
+
+  function finish() {
+    var totalCrit = results.reduce(function(s, r) {
+      return s + (r.analysis ? (r.analysis.problems||[]).filter(function(p){return p.severity==='critical';}).length : 0);
+    }, 0);
+    var avgScore = results.reduce(function(s, r) {
+      return s + (r.analysis ? (r.analysis.overall_score||0) : 0);
+    }, 0) / numBooks;
+
+    var html = '<div class="card"><div class="card-title">Sammanfattning</div><div class="summary-grid">' +
+      '<div class="stat"><div class="stat-label">Bocker testade</div><div class="stat-val">' + numBooks + '</div></div>' +
+      '<div class="stat"><div class="stat-label">Snittbetyg</div><div class="stat-val" style="color:' + (avgScore>=8?'#22c55e':avgScore>=6?'#f59e0b':'#ef4444') + '">' + avgScore.toFixed(1) + '/10</div></div>' +
+      '<div class="stat"><div class="stat-label">Kritiska problem</div><div class="stat-val" style="color:' + (totalCrit>0?'#ef4444':'#22c55e') + '">' + totalCrit + '</div></div>' +
+      '</div></div>';
+
+    results.forEach(function(r) { html += renderBook(r.bookNum, r.bookTitle, r.analysis, r.chapters.length); });
+    document.getElementById('reports').innerHTML = html;
+    setProgress(100, 'Klar!');
+    log('=== TEST KLART ===');
+    running = false;
+    document.getElementById('runBtn').disabled = false;
+  }
+
+  runBook(0);
+}
+</script>
+</body>
+</html>
