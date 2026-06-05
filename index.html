@@ -38,32 +38,38 @@ input:focus, select:focus { border-color: #6366f1; }
 .badge-ok { background: #14532d; color: #86efac; }
 .badge-warn { background: #78350f; color: #fcd34d; }
 .badge-fail { background: #7f1d1d; color: #fca5a5; }
-.chap-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-top: 1px solid #1e293b; font-size: 13px; }
+.chap-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid #1e293b; font-size: 13px; }
 .chap-num { font-weight: 500; min-width: 65px; color: #64748b; }
 .chap-icon { min-width: 20px; font-size: 15px; }
+.chap-note { flex: 1; }
+.chap-toggle { font-size: 11px; color: #6366f1; cursor: pointer; padding: 2px 8px; border: 1px solid #334155; border-radius: 4px; background: none; color: #94a3b8; flex-shrink: 0; white-space: nowrap; }
+.chap-toggle:hover { background: #334155; color: #f1f5f9; }
+.chap-text { display: none; margin: 4px 0 8px 73px; padding: 12px 14px; background: #0f172a; border-radius: 8px; font-size: 12px; line-height: 1.8; color: #cbd5e1; white-space: pre-wrap; max-height: 320px; overflow-y: auto; border: 1px solid #1e293b; border-left: 2px solid #334155; }
+.chap-text.open { display: block; }
 .issues { margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
 .issues-title { font-size: 12px; font-weight: 500; color: #94a3b8; margin-bottom: 8px; }
 .issue { font-size: 12px; margin-bottom: 10px; padding-left: 10px; border-left: 2px solid #ef4444; }
 .issue.warn { border-left-color: #f59e0b; }
 .fix { color: #22c55e; margin-top: 3px; }
 .summary-text { font-size: 13px; color: #94a3b8; margin-bottom: 12px; line-height: 1.6; }
+.book-id { font-size: 11px; color: #475569; font-family: monospace; margin-top: 2px; }
 </style>
 </head>
 <body>
 
 <h1>BN Kids Story Tester</h1>
-<p class="sub">Genererar bocker och analyserar minnesprestanda automatiskt</p>
+<p class="sub">Genererar böcker och analyserar minnesprestanda automatiskt</p>
 
 <div class="card">
-  <div class="card-title">Installningar</div>
+  <div class="card-title">Inställningar</div>
   <div class="grid3" style="margin-bottom:12px">
     <div class="field">
       <label>Worker URL</label>
       <input type="text" id="workerUrl" value="https://bn-kids-stories-worker.bjorta-bb.workers.dev" />
     </div>
     <div class="field">
-      <label>Token</label>
-      <input type="text" id="token" value="bjorn-admin" />
+      <label>Token (lämna tomt om öppen)</label>
+      <input type="text" id="token" value="" />
     </div>
     <div class="field">
       <label>Barnnamn</label>
@@ -73,25 +79,25 @@ input:focus, select:focus { border-color: #6366f1; }
   <div class="grid2" style="margin-bottom:12px">
     <div class="field">
       <label>Saga-prompt</label>
-      <input type="text" id="storyPrompt" value="Pelle traffar Lisa och de foralskar sig" />
+      <input type="text" id="storyPrompt" value="Pelle träffar Lisa och de förälskar sig" />
     </div>
     <div class="field">
-      <label>Barnets alder</label>
+      <label>Barnets ålder</label>
       <input type="number" id="childAge" value="9" min="3" max="13" />
     </div>
   </div>
   <div class="field" style="margin-bottom:12px">
-    <label>Antal bocker</label>
+    <label>Antal böcker</label>
     <select id="numBooks" style="max-width:200px">
       <option value="1">1 bok</option>
-      <option value="3" selected>3 bocker</option>
+      <option value="3" selected>3 böcker</option>
     </select>
   </div>
-  <button class="btn" id="runBtn" onclick="startTest()">Kor test</button>
+  <button class="btn" id="runBtn" onclick="startTest()">Kör test</button>
 </div>
 
 <div class="card progress-wrap" id="progressWrap">
-  <div class="progress-label" id="progressLabel">Forbereder...</div>
+  <div class="progress-label" id="progressLabel">Förbereder...</div>
   <div class="progress-bg"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
   <div class="logbox" id="logBox"></div>
 </div>
@@ -112,9 +118,19 @@ function setProgress(pct, label) {
   document.getElementById('progressLabel').textContent = label;
 }
 
+function toggleChap(btn) {
+  var textDiv = btn.parentElement.nextElementSibling;
+  var isOpen = textDiv.classList.toggle('open');
+  btn.textContent = isOpen ? 'Dölj ▲' : 'Visa ▼';
+}
+
 function workerFetch(url, token, path, body) {
-  var sep = url.indexOf('?') >= 0 ? '&' : '?';
-  return fetch(url + path + sep + 'token=' + encodeURIComponent(token), {
+  var fullUrl = url + path;
+  if (token) {
+    var sep = fullUrl.indexOf('?') >= 0 ? '&' : '?';
+    fullUrl = fullUrl + sep + 'token=' + encodeURIComponent(token);
+  }
+  return fetch(fullUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -133,25 +149,38 @@ function analyzeViaWorker(url, token, bookTitle, chapters, prompt) {
   });
 }
 
-function renderBook(bookNum, bookTitle, analysis, chapCount) {
+function renderBook(bookNum, bookTitle, bookId, analysis, chapters) {
+  // Build a map from chapter index to text for quick lookup
+  var chapMap = {};
+  (chapters || []).forEach(function(c) { chapMap[c.index] = c.text || ''; });
+
   if (!analysis) {
     return '<div class="book-card"><div class="book-header"><span class="book-score" style="color:#ef4444">?</span><div><div class="book-title">Bok ' + bookNum + '</div><div class="book-sub">Analys misslyckades</div></div></div></div>';
   }
+
   var score = Math.round(analysis.overall_score || 0);
   var scoreColor = score >= 8 ? '#22c55e' : score >= 6 ? '#f59e0b' : '#ef4444';
   var badgeClass = score >= 8 ? 'badge-ok' : score >= 6 ? 'badge-warn' : 'badge-fail';
-  var badgeText = score >= 8 ? 'Bra minne' : score >= 6 ? 'Godkant' : 'Problem';
+  var badgeText = score >= 8 ? 'Bra minne' : score >= 6 ? 'Godkänt' : 'Problem';
 
   var verdicts = (analysis.chapter_verdicts || []).map(function(v) {
-    var icon = v.status === 'ok' ? '&check;' : v.status === 'warn' ? '&#9888;' : '&#10008;';
+    var icon = v.status === 'ok' ? '&#10003;' : v.status === 'warn' ? '&#9888;' : '&#10008;';
     var color = v.status === 'ok' ? '#22c55e' : v.status === 'warn' ? '#f59e0b' : '#ef4444';
-    return '<div class="chap-row"><span class="chap-num">Kap ' + v.chapter + '</span><span class="chap-icon" style="color:' + color + '">' + icon + '</span><span>' + (v.note || '') + '</span></div>';
+    var chapText = chapMap[v.chapter] || '';
+    var hasText = chapText.length > 0;
+    var toggleBtn = hasText
+      ? '<button class="chap-toggle" onclick="toggleChap(this)">Visa ▼</button>'
+      : '';
+    var textDiv = hasText
+      ? '<div class="chap-text">' + chapText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'
+      : '';
+    return '<div class="chap-row"><span class="chap-num">Kap ' + v.chapter + '</span><span class="chap-icon" style="color:' + color + '">' + icon + '</span><span class="chap-note">' + (v.note || '') + '</span>' + toggleBtn + '</div>' + textDiv;
   }).join('');
 
   var problems = analysis.problems || [];
   var issuesHtml = '';
   if (problems.length) {
-    issuesHtml = '<div class="issues"><div class="issues-title">Problem och forbattringsforslag</div>';
+    issuesHtml = '<div class="issues"><div class="issues-title">Problem och förbättringsförslag</div>';
     problems.forEach(function(p) {
       var cls = p.severity === 'critical' ? 'issue' : 'issue warn';
       issuesHtml += '<div class="' + cls + '"><strong>Kap ' + p.chapter + ':</strong> ' + p.description + '<div class="fix">Fix: ' + p.fix + '</div></div>';
@@ -159,10 +188,12 @@ function renderBook(bookNum, bookTitle, analysis, chapCount) {
     issuesHtml += '</div>';
   }
 
+  var bookIdHtml = bookId ? '<div class="book-id">book_id: ' + bookId + '</div>' : '';
+
   return '<div class="book-card">' +
     '<div class="book-header">' +
     '<span class="book-score" style="color:' + scoreColor + '">' + score + '/10</span>' +
-    '<div style="flex:1"><div class="book-title">' + (bookTitle || 'Bok ' + bookNum) + '</div><div class="book-sub">' + chapCount + ' kapitel</div></div>' +
+    '<div style="flex:1"><div class="book-title">' + (bookTitle || 'Bok ' + bookNum) + '</div><div class="book-sub">' + (chapters ? chapters.length : 0) + ' kapitel</div>' + bookIdHtml + '</div>' +
     '<span class="badge ' + badgeClass + '">' + badgeText + '</span>' +
     '</div>' +
     (analysis.summary ? '<div class="summary-text">' + analysis.summary + '</div>' : '') +
@@ -175,10 +206,10 @@ function startTest() {
   var token = document.getElementById('token').value.trim();
   var childName = document.getElementById('childName').value.trim() || 'Bjorn';
   var childAge = parseInt(document.getElementById('childAge').value) || 9;
-  var storyPrompt = document.getElementById('storyPrompt').value.trim() || 'Ett magiskt aventyr';
+  var storyPrompt = document.getElementById('storyPrompt').value.trim() || 'Ett magiskt äventyr';
   var numBooks = parseInt(document.getElementById('numBooks').value);
 
-  if (!workerUrl || !token) { alert('Fyll i Worker URL och Token'); return; }
+  if (!workerUrl) { alert('Fyll i Worker URL'); return; }
 
   running = true;
   document.getElementById('runBtn').disabled = true;
@@ -206,18 +237,18 @@ function startTest() {
           .then(function(res) {
             if (res.ok && res.analysis) {
               log('  Analys klar! Betyg: ' + res.analysis.overall_score + '/10');
-              results.push({ bookNum: b+1, bookTitle: bookTitle, chapters: chapters, analysis: res.analysis });
+              results.push({ bookNum: b+1, bookTitle: bookTitle, bookId: bookId, chapters: chapters, analysis: res.analysis });
             } else {
-              log('  Analysfeil: ' + (res.error || 'okant fel'));
-              results.push({ bookNum: b+1, bookTitle: bookTitle, chapters: chapters, analysis: null });
+              log('  Analysfel: ' + (res.error || 'okänt fel'));
+              results.push({ bookNum: b+1, bookTitle: bookTitle, bookId: bookId, chapters: chapters, analysis: null });
             }
             step++;
             setProgress((step/totalSteps)*100, 'Bok ' + (b+1) + ' klar');
             runBook(b+1);
           })
           .catch(function(e) {
-            log('  Analysfeil: ' + e.message);
-            results.push({ bookNum: b+1, bookTitle: bookTitle, chapters: chapters, analysis: null });
+            log('  Analysfel: ' + e.message);
+            results.push({ bookNum: b+1, bookTitle: bookTitle, bookId: bookId, chapters: chapters, analysis: null });
             runBook(b+1);
           });
         return;
@@ -255,12 +286,14 @@ function startTest() {
     }, 0) / numBooks;
 
     var html = '<div class="card"><div class="card-title">Sammanfattning</div><div class="summary-grid">' +
-      '<div class="stat"><div class="stat-label">Bocker testade</div><div class="stat-val">' + numBooks + '</div></div>' +
+      '<div class="stat"><div class="stat-label">Böcker testade</div><div class="stat-val">' + numBooks + '</div></div>' +
       '<div class="stat"><div class="stat-label">Snittbetyg</div><div class="stat-val" style="color:' + (avgScore>=8?'#22c55e':avgScore>=6?'#f59e0b':'#ef4444') + '">' + avgScore.toFixed(1) + '/10</div></div>' +
       '<div class="stat"><div class="stat-label">Kritiska problem</div><div class="stat-val" style="color:' + (totalCrit>0?'#ef4444':'#22c55e') + '">' + totalCrit + '</div></div>' +
       '</div></div>';
 
-    results.forEach(function(r) { html += renderBook(r.bookNum, r.bookTitle, r.analysis, r.chapters.length); });
+    results.forEach(function(r) {
+      html += renderBook(r.bookNum, r.bookTitle, r.bookId, r.analysis, r.chapters);
+    });
     document.getElementById('reports').innerHTML = html;
     setProgress(100, 'Klar!');
     log('=== TEST KLART ===');
